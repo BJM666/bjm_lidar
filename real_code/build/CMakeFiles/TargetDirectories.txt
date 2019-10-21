@@ -1,0 +1,3 @@
+/home/ubuntu/lidar/bjm_lidar/real_code/build/CMakeFiles/edit_cache.dir
+/home/ubuntu/lidar/bjm_lidar/real_code/build/CMakeFiles/rebuild_cache.dir
+/home/ubuntu/lidar/bjm_lidar/real_code/build/CMakeFiles/lidar_pose.dir

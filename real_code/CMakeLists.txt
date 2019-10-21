@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
+project(lidar_pose)
+find_package(PCL 1.2 REQUIRED)
+include_directories(${PCL_INCLUDE_DIRS} /usr/include/)
+link_directories(${PCL_LIBRARY_DIRS} /usr/lib)
+add_definitions(${PCL_DEFINITIONS})
+add_executable(lidar_pose lidar_pose.cpp)
+target_link_libraries(lidar_pose ${PCL_LIBRARIES})
