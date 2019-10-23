@@ -1,39 +1,29 @@
-#define PCL_NO_PRECOMPILE
 #include <iostream>
-#include <pcl/point_types.h>
-#include <pcl/point_cloud.h>
-#include <pcl/io/pcd_io.h>
 
-struct vele
+#include <Eigen/Dense>
+#include <math.h>
+#define roll 2.99
+#define pitch 8.34853
+#define yaw -90.9782
+#define PI 3.1415926
+using namespace Eigen;
+
+int main()
+
 {
-  PCL_ADD_POINT4D;          // 添加pcl里xyz+padding
-  float intensity;
-  unsigned short ring;
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW   // 确保定义新类型点云内存与SSE对齐
-} EIGEN_ALIGN16;                    // 强制SSE填充以正确对齐内存
-POINT_CLOUD_REGISTER_POINT_STRUCT (vele,           // 定义新类型里元素包括XYZ+“intensity”
-                                   (float, x, x)
-                                   (float, y, y)
-                                   (float, z, z)
-                                   (float, intensity, intensity)
-                                   (unsigned short, ring, ring)
-)
+  Matrix3f x,y,z;
 
+  x << 1, 0, 0,
+       0, cos(roll/180*PI),-sin(roll/180*PI),
+       0, sin(roll/180*PI), cos(roll/180*PI);
 
-int
-main (int argc, char** argv)//兴建一个新的点云文件，包括两个新定义点云类型的点
-{
-  //pcl::PointCloud<vele> cloud;//初始化点云类型
-  pcl::PointCloud<vele>::Ptr cloud1 (new pcl::PointCloud<vele>);
-  pcl::io::loadPCDFile<vele>("out0.pcd",*cloud1);
-  std::cout<<"Loaded "
-  <<cloud1->width*cloud1->height
-  <<" data points from intensity_pcd.pcd with the following fields: "
-  <<std::endl;
-  for(size_t i=0;i<cloud1->points.size();++i)
-  std::cout<<"    "<<cloud1->points[i].x
-  <<" "<<cloud1->points[i].y
-  <<" "<<cloud1->points[i].z
-  <<" "<<cloud1->points[i].intensity
-  <<" "<<cloud1->points[i].ring<<std::endl;
+  y <<cos(pitch/180*PI),0,sin(pitch/180*PI),
+      0,    1,     0,
+      -sin(pitch/180*PI),0,cos(pitch/180*PI);
+
+  z <<cos(yaw/180*PI),-sin(yaw),0,
+      sin(yaw/180*PI),cos(yaw/180*PI),0,
+      0,0,1;
+  std::cout <<z*y*x << std::endl;
+
 }
