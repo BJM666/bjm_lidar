@@ -7,6 +7,8 @@
 #include <pcl/registration/icp.h>
 #include <pcl/point_cloud.h>
 #include <pcl/visualization/pcl_visualizer.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/filters/voxel_grid.h>
 #include <math.h>
 
 struct vele// new lidar data
@@ -32,12 +34,52 @@ int
   pcl::io::loadPCDFile<vele>("out0.pcd",*cloud_in);
   pcl::PointCloud<vele>::Ptr cloud_out (new pcl::PointCloud<vele>);
   pcl::io::loadPCDFile<vele>("outzhuan.pcd",*cloud_out);
+  //predeal
+  /*float distance_ref,distance_out;
+  const float use_range = 10;
+  pcl::PointCloud<vele>::iterator index_in;
+  pcl::PointCloud<vele>::iterator index_out;
+  for (size_t i = 0; i < cloud_in->points.size(); i++) {
+    distance_ref = pow(cloud_in->points[i].x,2)
+                +pow(cloud_in->points[i].y,2)
+                +pow(cloud_in->points[i].z,2);
+    distance_out = pow(cloud_out->points[i].x,2)
+                +pow(cloud_out->points[i].y,2)
+                +pow(cloud_out->points[i].z,2);
+    if (distance_ref > use_range*use_range) {
+        index_in = cloud_in->begin() + i;
+        cloud_in->points.erase(index_in);
+    }
+    if (distance_out > use_range*use_range) {
+        index_out = cloud_out->begin() + i;
+        cloud_out->points.erase(index_out);
+    }*/
+    pcl::StatisticalOutlierRemoval<vele> dicree_filter;
+    pcl::PointCloud<vele>::Ptr cloud_in_filtering (new pcl::PointCloud<vele>);
+    pcl::PointCloud<vele>::Ptr cloud_out_filtering (new pcl::PointCloud<vele>);
+    dicree_filter.setMeanK (30);
+    dicree_filter.setStddevMulThresh (0.9);
+    dicree_filter.setInputCloud (cloud_in);
+    dicree_filter.filter (*cloud_in_filtering);
+    dicree_filter.setInputCloud (cloud_out);
+    dicree_filter.filter (*cloud_out_filtering);
+
+
+    pcl::VoxelGrid<vele> voxel_filter;
+    pcl::PointCloud<vele>::Ptr cloud_in_filtered (new pcl::PointCloud<vele>);
+    pcl::PointCloud<vele>::Ptr cloud_out_filtered (new pcl::PointCloud<vele>);
+    voxel_filter.setLeafSize (0.05f, 0.05f, 0.05f);
+    voxel_filter.setInputCloud (cloud_in_filtering);
+    voxel_filter.filter (*cloud_in_filtered);
+    voxel_filter.setInputCloud (cloud_out_filtering);
+    voxel_filter.filter (*cloud_out_filtered);
+
 
   //icp
   std::vector<float> matrix2angle(Eigen::Matrix4f rotateMatrix);//solve angle
   pcl::IterativeClosestPoint<vele, vele> icp;
-  icp.setInputSource(cloud_out);//out
-  icp.setInputTarget(cloud_in);//in
+  icp.setInputSource(cloud_out_filtered);//out
+  icp.setInputTarget(cloud_in_filtered);//in
   icp.setMaximumIterations (30);//number of iterations
   //icp.setMaxCorrespondenceDistance(0.5);
   //icp.setTransformationEpsilon(1e-6);
@@ -60,12 +102,12 @@ int
   pcl::visualization::PCLVisualizer viewer("icp");
   viewer.setBackgroundColor(0, 0, 0); //创建窗口
   viewer.createViewPort(0.0, 0.0, 1.0, 1.0, v1);
-  pcl::visualization::PointCloudColorHandlerCustom<vele> ref_color(cloud_in, 0, 255, 0); //投影前可以随便设一个颜色
-  pcl::visualization::PointCloudColorHandlerCustom<vele> present_color(cloud_out, 255, 255, 255);  //投影后的设置为白色
+  pcl::visualization::PointCloudColorHandlerCustom<vele> ref_color(cloud_in_filtered, 0, 255, 0); //投影前可以随便设一个颜色
+  pcl::visualization::PointCloudColorHandlerCustom<vele> present_color(cloud_out_filtered, 255, 255, 255);  //投影后的设置为白色
   pcl::visualization::PointCloudColorHandlerCustom<vele> final_color(Final, 255, 0, 0);  //投影后的设置为白色
   viewer.addPointCloud<vele>(Final, final_color, "final", v1);
-  viewer.addPointCloud<vele>(cloud_in, ref_color, "ref", v1);
-  viewer.addPointCloud<vele>(cloud_out, present_color, "present", v1);
+  viewer.addPointCloud<vele>(cloud_in_filtered, ref_color, "ref", v1);
+  viewer.addPointCloud<vele>(cloud_out_filtered, present_color, "present", v1);
   viewer.spin();
 
  return (0);
