@@ -7,8 +7,10 @@
 #include <pcl/registration/icp.h>
 #include <pcl/point_cloud.h>
 #include <pcl/visualization/pcl_visualizer.h>
-#include <pcl/filters/statistical_outlier_removal.h>
+//#include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/voxel_grid.h>
+//#include <pcl/kdtree/kdtree_flann.h>
+
 #include <math.h>
 
 struct vele// new lidar data
@@ -54,33 +56,42 @@ int
         index_out = cloud_out->begin() + i;
         cloud_out->points.erase(index_out);
     }*/
-    pcl::StatisticalOutlierRemoval<vele> dicree_filter;
-    pcl::PointCloud<vele>::Ptr cloud_in_filtering (new pcl::PointCloud<vele>);
-    pcl::PointCloud<vele>::Ptr cloud_out_filtering (new pcl::PointCloud<vele>);
+
+    /*pcl::StatisticalOutlierRemoval<vele> dicree_filter;
+    pcl::PointCloud<vele>::Ptr cloud_in_filtered (new pcl::PointCloud<vele>);
+    pcl::PointCloud<vele>::Ptr cloud_out_filtered (new pcl::PointCloud<vele>);
     dicree_filter.setMeanK (30);
     dicree_filter.setStddevMulThresh (0.9);
     dicree_filter.setInputCloud (cloud_in);
-    dicree_filter.filter (*cloud_in_filtering);
+    dicree_filter.filter (*cloud_in_filtered);
     dicree_filter.setInputCloud (cloud_out);
-    dicree_filter.filter (*cloud_out_filtering);
+    dicree_filter.filter (*cloud_out_filtered);*/
+    //会影响迭代精度，目前暂时不知道原因
 
 
     pcl::VoxelGrid<vele> voxel_filter;
     pcl::PointCloud<vele>::Ptr cloud_in_filtered (new pcl::PointCloud<vele>);
     pcl::PointCloud<vele>::Ptr cloud_out_filtered (new pcl::PointCloud<vele>);
     voxel_filter.setLeafSize (0.05f, 0.05f, 0.05f);
-    voxel_filter.setInputCloud (cloud_in_filtering);
+    voxel_filter.setInputCloud (cloud_in);
     voxel_filter.filter (*cloud_in_filtered);
-    voxel_filter.setInputCloud (cloud_out_filtering);
+    voxel_filter.setInputCloud (cloud_out);
     voxel_filter.filter (*cloud_out_filtered);
 
 
   //icp
-  std::vector<float> matrix2angle(Eigen::Matrix4f rotateMatrix);//solve angle
-  pcl::IterativeClosestPoint<vele, vele> icp;
+    std::vector<float> matrix2angle(Eigen::Matrix4f rotateMatrix);//solve angle
+    pcl::IterativeClosestPoint<vele,vele> icp;
+    pcl::search::KdTree<vele>::Ptr tree_in (new pcl::search::KdTree<vele>);
+    tree_in->setInputCloud(cloud_in);
+    icp.setSearchMethodTarget(tree_in);
+    pcl::search::KdTree<vele>::Ptr tree_out (new pcl::search::KdTree<vele>);
+    tree_out->setInputCloud(cloud_out);
+    icp.setSearchMethodSource(tree_out);
+
   icp.setInputSource(cloud_out_filtered);//out
   icp.setInputTarget(cloud_in_filtered);//in
-  icp.setMaximumIterations (30);//number of iterations
+  icp.setMaximumIterations (50);//number of iterations
   //icp.setMaxCorrespondenceDistance(0.5);
   //icp.setTransformationEpsilon(1e-6);
   //icp.setEuclideanFitnessEpsilon(0.11);
