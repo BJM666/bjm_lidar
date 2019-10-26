@@ -26,38 +26,25 @@ POINT_CLOUD_REGISTER_POINT_STRUCT (vele,           //
 int
  main (int argc, char** argv)
 {
+    //read pcd file
   pcl::PointCloud<vele>::Ptr cloud_in (new pcl::PointCloud<vele>);
-  pcl::io::loadPCDFile<vele>("ref.pcd",*cloud_in);
+  pcl::io::loadPCDFile<vele>("out0.pcd",*cloud_in);
   pcl::PointCloud<vele>::Ptr cloud_out (new pcl::PointCloud<vele>);
-  pcl::io::loadPCDFile<vele>("present.pcd",*cloud_out);
+  pcl::io::loadPCDFile<vele>("outzhuan.pcd",*cloud_out);
+
+  //icp
   std::vector<float> matrix2angle(Eigen::Matrix4f rotateMatrix);//solve angle
-
-//  pcl::PointCloud<vele>::Ptr cloud_in (new pcl::PointCloud<vele>);
-//  pcl::PointCloud<vele>::Ptr cloud_out (new pcl::PointCloud<vele>);
-
-  //std::vector< pcl::PointCloud<vele> > combine_in_point;
-  //combine_in_point.push_back(*cloud_in1);
-  //combine_in_point.push_back(*cloud_in2);
-  //for (size_t i=0;i<combine_in_point.size();i++)
-  //{
-  //	*cloud_in += combine_in_point[i];
-//  }
-
-//  std::vector< pcl::PointCloud<vele> > combine_out_point;
-//  combine_out_point.push_back(*cloud_out1);
-  //combine_out_point.push_back(*cloud_out2);
-//  for (size_t i=0;i<combine_out_point.size();i++)
-//  {
-//  	*cloud_out += combine_out_point[i];
-//  }
-
   pcl::IterativeClosestPoint<vele, vele> icp;
   icp.setInputSource(cloud_out);//out
-  icp.setInputTarget(cloud_in);
+  icp.setInputTarget(cloud_in);//in
   icp.setMaximumIterations (300);//number of iterations
+  //icp.setMaxCorrespondenceDistance(0.5);
+  //icp.setTransformationEpsilon(1e-6);
+  // icp.setEuclideanFitnessEpsilon(0.11);
   pcl::PointCloud<vele> Final;
   icp.align(Final);
-  std::vector<float> angleRPY;
+
+  std::vector<float> angleRPY;//get angle from mat
   angleRPY.resize(3);
   angleRPY=matrix2angle(icp.getFinalTransformation());
   std::cout  <<"x,y,z:"<<icp.getFinalTransformation()(0,3)<<" "
@@ -66,7 +53,6 @@ int
   std::cout <<"R:"<< angleRPY.at(0)<<" "<<"P:"<< angleRPY.at(1)<<" "<<"Y:"<< angleRPY.at(2)<<" "<<std::endl;
   printf("\n" );
   std::cout <<icp.getFinalTransformation()<<std::endl;
-
  return (0);
 }
 
