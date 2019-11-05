@@ -2,101 +2,128 @@
 #define M_PI 3.1415926
 
 #include <iostream>
+//#include <omp.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <pcl/registration/icp.h>
 #include <pcl/point_cloud.h>
 #include <pcl/visualization/pcl_visualizer.h>
-//#include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/keypoints/sift_keypoint.h>
 //#include <pcl/kdtree/kdtree_flann.h>
-
+//#include <pcl/octree/octree.h>
+#include <time.h>
 #include <math.h>
+//#include <pcl/registration/ndt.h>
 
+//#include <vector>
 struct vele// new lidar data
 {
-  PCL_ADD_POINT4D;
-  float intensity;
-  unsigned short ring;
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW   //
+    PCL_ADD_POINT4D;
+    float intensity;
+    unsigned short ring;
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW   //
 } EIGEN_ALIGN16;                    //
 POINT_CLOUD_REGISTER_POINT_STRUCT (vele,           //
-                                   (float, x, x)
-                                   (float, y, y)
-                                   (float, z, z)
-                                   (float, intensity, intensity)
-                                   (unsigned short, ring, ring)
+    (float, x, x)
+    (float, y, y)
+    (float, z, z)
+    (float, intensity, intensity)
+    (unsigned short, ring, ring)
 )
-
-int
- main (int argc, char** argv)
+/*namespace pcl
 {
+  template<>
+    struct SIFTKeypointFieldSelector<vele>
+    {
+      inline float
+      operator () (const vele &p) const
+      {
+    return p.z;
+      }
+    };
+}*/
+
+
+int main (int argc, char** argv)
+{
+    //recordtime
+    clock_t start,finish,predeal,keypoints;
+    double totaltime,time_key,time_icp,time_pre;
     //read pcd file
   pcl::PointCloud<vele>::Ptr cloud_in (new pcl::PointCloud<vele>);
   pcl::io::loadPCDFile<vele>("out0.pcd",*cloud_in);
   pcl::PointCloud<vele>::Ptr cloud_out (new pcl::PointCloud<vele>);
-  pcl::io::loadPCDFile<vele>("outzhuan.pcd",*cloud_out);
+  pcl::io::loadPCDFile<vele>("outout.pcd",*cloud_out);
+  start=clock();
   //predeal
-  /*float distance_ref,distance_out;
-  const float use_range = 10;
-  pcl::PointCloud<vele>::iterator index_in;
-  pcl::PointCloud<vele>::iterator index_out;
+  pcl::PointCloud<vele>::Ptr cloud_in_filtering (new pcl::PointCloud<vele>);
+  pcl::PointCloud<vele>::Ptr cloud_out_filtering (new pcl::PointCloud<vele>);
   for (size_t i = 0; i < cloud_in->points.size(); i++) {
-    distance_ref = pow(cloud_in->points[i].x,2)
-                +pow(cloud_in->points[i].y,2)
-                +pow(cloud_in->points[i].z,2);
-    distance_out = pow(cloud_out->points[i].x,2)
-                +pow(cloud_out->points[i].y,2)
-                +pow(cloud_out->points[i].z,2);
-    if (distance_ref > use_range*use_range) {
-        index_in = cloud_in->begin() + i;
-        cloud_in->points.erase(index_in);
-    }
-    if (distance_out > use_range*use_range) {
-        index_out = cloud_out->begin() + i;
-        cloud_out->points.erase(index_out);
-    }*/
-
-    /*pcl::StatisticalOutlierRemoval<vele> dicree_filter;
-    pcl::PointCloud<vele>::Ptr cloud_in_filtered (new pcl::PointCloud<vele>);
-    pcl::PointCloud<vele>::Ptr cloud_out_filtered (new pcl::PointCloud<vele>);
-    dicree_filter.setMeanK (30);
-    dicree_filter.setStddevMulThresh (0.9);
-    dicree_filter.setInputCloud (cloud_in);
-    dicree_filter.filter (*cloud_in_filtered);
-    dicree_filter.setInputCloud (cloud_out);
-    dicree_filter.filter (*cloud_out_filtered);*/
-    //会影响迭代精度，目前暂时不知道原因
-
+      if ((int)cloud_in->points[i].ring % 2) {
+        cloud_in_filtering->push_back(cloud_in->points[i]);
+         // cloud_in->erase(cloud_in->begin()+i);
+      }
+  }
+  for (size_t i = 0; i < cloud_out->points.size(); i++) {
+      if ((int)cloud_out->points[i].ring % 2) {
+        cloud_out_filtering->push_back(cloud_out->points[i]);
+         // cloud_in->erase(cloud_in->begin()+i);
+      }
+  }
+  pcl::PointCloud<vele>::Ptr cloud_in_filtering1 (new pcl::PointCloud<vele>);
+  pcl::PointCloud<vele>::Ptr cloud_out_filtering1 (new pcl::PointCloud<vele>);
 
     pcl::VoxelGrid<vele> voxel_filter;
+    voxel_filter.setLeafSize (0.1f, 0.1f, 0.1f);
+    voxel_filter.setInputCloud (cloud_in_filtering);
+    voxel_filter.filter (*cloud_in_filtering1);
+    voxel_filter.setInputCloud (cloud_out_filtering);
+    voxel_filter.filter (*cloud_out_filtering1);
+
+    predeal=clock();
+    //ndt
+    pcl::search::KdTree<vele>::Ptr tree_out(new pcl::search::KdTree<vele>());
+    pcl::search::KdTree<vele>::Ptr tree_in(new pcl::search::KdTree<vele>());
     pcl::PointCloud<vele>::Ptr cloud_in_filtered (new pcl::PointCloud<vele>);
     pcl::PointCloud<vele>::Ptr cloud_out_filtered (new pcl::PointCloud<vele>);
-    voxel_filter.setLeafSize (0.05f, 0.05f, 0.05f);
-    voxel_filter.setInputCloud (cloud_in);
-    voxel_filter.filter (*cloud_in_filtered);
-    voxel_filter.setInputCloud (cloud_out);
-    voxel_filter.filter (*cloud_out_filtered);
+    const float min_scale = 0.1f;
+    const int n_octaves = 6;
+    const int n_scales_per_octave = 2;
+    const float min_contrast = 0.1f;
+    pcl::SIFTKeypoint<vele, pcl::PointWithScale> sift_in;//����sift�ؼ�����������
 
+    pcl::PointCloud<pcl::PointWithScale> result_in;
+    sift_in.setInputCloud(cloud_in_filtering1);//������������
+    sift_in.setSearchMethod(tree_in);//����һ���յ�kd������tree�����������ݸ�sift��������
+    sift_in.setScales(min_scale, n_octaves, n_scales_per_octave);//ָ�������ؼ����ĳ߶ȷ�Χ
+    sift_in.setMinimumContrast(min_contrast);//�������ƹؼ�����������ֵ
+    sift_in.compute(result_in);//ִ��sift�ؼ������⣬����������result
+    copyPointCloud(result_in, *cloud_in_filtered);
 
+    pcl::SIFTKeypoint<vele, pcl::PointWithScale> sift_out;//����sift�ؼ�����������
+    pcl::PointCloud<pcl::PointWithScale> result_out;
+    sift_out.setInputCloud(cloud_out_filtering1);//������������
+    sift_out.setSearchMethod(tree_out);//����һ���յ�kd������tree�����������ݸ�sift��������
+    sift_out.setScales(min_scale, n_octaves, n_scales_per_octave);//ָ�������ؼ����ĳ߶ȷ�Χ
+    sift_out.setMinimumContrast(min_contrast);//�������ƹؼ�����������ֵ
+    sift_out.compute(result_out);//ִ��sift�ؼ������⣬����������result
+    copyPointCloud(result_out, *cloud_out_filtered);
+    keypoints=clock();
   //icp
     std::vector<float> matrix2angle(Eigen::Matrix4f rotateMatrix);//solve angle
     pcl::IterativeClosestPoint<vele,vele> icp;
-    pcl::search::KdTree<vele>::Ptr tree_in (new pcl::search::KdTree<vele>);
-    tree_in->setInputCloud(cloud_in);
-    icp.setSearchMethodTarget(tree_in);
-    pcl::search::KdTree<vele>::Ptr tree_out (new pcl::search::KdTree<vele>);
-    tree_out->setInputCloud(cloud_out);
-    icp.setSearchMethodSource(tree_out);
-
   icp.setInputSource(cloud_out_filtered);//out
   icp.setInputTarget(cloud_in_filtered);//in
-  icp.setMaximumIterations (50);//number of iterations
-  //icp.setMaxCorrespondenceDistance(0.5);
+  //icp.setSearchMethodSource(tree_out);
+  //icp.setSearchMethodTarget(tree_in);
+  icp.setMaximumIterations (20);//number of iterations
+  //icp.setRANSACIterations(100);
+  //icp.setRANSACOutlierRejectionThreshold(1);
+  //icp.setMaxCorrespondenceDistance(1.3);
   //icp.setTransformationEpsilon(1e-6);
   //icp.setEuclideanFitnessEpsilon(0.11);
   pcl::PointCloud<vele>::Ptr Final (new pcl::PointCloud<vele>);
-  //pcl::PointCloud<vele> Final;
   icp.align(*Final);
   std::vector<float> angleRPY;//get angle from mat
   angleRPY.resize(3);
@@ -104,21 +131,36 @@ int
   std::cout  <<"x,y,z:"<<icp.getFinalTransformation()(0,3)<<" "
   <<icp.getFinalTransformation()(1,3)<<" "
   <<icp.getFinalTransformation()(2,3)<<std::endl;
-  std::cout <<"R:"<< angleRPY.at(0)<<" "<<"P:"<< angleRPY.at(1)<<" "<<"Y:"<< angleRPY.at(2)<<" "<<std::endl;
+  std::cout <<"R:"<< angleRPY.at(0)<<" "<<"P:"<< angleRPY.at(1)<<" "<<"Y:"
+  << angleRPY.at(2)<<" "<<std::endl;
   printf("\n" );
   std::cout <<icp.getFinalTransformation()<<std::endl;
+    finish=clock();
+    time_pre=(double)(predeal-start)/CLOCKS_PER_SEC;
+    time_key=(double)(keypoints-predeal)/CLOCKS_PER_SEC;
+    time_icp=(double)(finish-keypoints)/CLOCKS_PER_SEC;
+    totaltime=(double)(finish-start)/CLOCKS_PER_SEC;
 
+    cout<<"\n滤波时间为"<<time_pre<<"秒！"<<endl;
+    cout<<"\n查找关键点时间为"<<time_key<<"秒！"<<endl;
+    cout<<"\nicp时间为"<<time_icp<<"秒！"<<endl;
+    cout<<"\n总时间为"<<totaltime<<"秒！"<<endl;
+    cout<<"\n初始点数为"<<cloud_in->points.size()<<endl;
+    cout<<"\n下采样后点数为"<<cloud_in_filtering1->points.size()<<endl;
+    cout<<"\n关键点数为"<< cloud_in_filtered->points.size() <<endl;
   //viewer
   int v1;
   pcl::visualization::PCLVisualizer viewer("icp");
   viewer.setBackgroundColor(0, 0, 0); //创建窗口
   viewer.createViewPort(0.0, 0.0, 1.0, 1.0, v1);
-  pcl::visualization::PointCloudColorHandlerCustom<vele> ref_color(cloud_in_filtered, 0, 255, 0); //投影前可以随便设一个颜色
-  pcl::visualization::PointCloudColorHandlerCustom<vele> present_color(cloud_out_filtered, 255, 255, 255);  //投影后的设置为白色
-  pcl::visualization::PointCloudColorHandlerCustom<vele> final_color(Final, 255, 0, 0);  //投影后的设置为白色
-  viewer.addPointCloud<vele>(Final, final_color, "final", v1);
-  viewer.addPointCloud<vele>(cloud_in_filtered, ref_color, "ref", v1);
-  viewer.addPointCloud<vele>(cloud_out_filtered, present_color, "present", v1);
+  pcl::visualization::PointCloudColorHandlerCustom<vele> target_color(cloud_in_filtered, 255, 255, 255); //目标白
+  //pcl::visualization::PointCloudColorHandlerCustom<vele> ndt_color(cloud_out_filtered, 0, 0, 255);  //ndt蓝
+  pcl::visualization::PointCloudColorHandlerCustom<vele> icp_color(Final, 0, 255, 0);  //ICP绿
+  pcl::visualization::PointCloudColorHandlerCustom<vele> source_color(cloud_out_filtered, 255, 0, 0);  //初始红
+  viewer.addPointCloud<vele>(cloud_in_filtered, target_color, "target", v1);
+  //viewer.addPointCloud<vele>(cloud_out_filtered, ndt_color, "ndt", v1);
+  viewer.addPointCloud<vele>(Final, icp_color, "icp", v1);
+  viewer.addPointCloud<vele>(cloud_out_filtered, source_color, "source", v1);
   viewer.spin();
 
  return (0);

@@ -1,0 +1,3 @@
+/home/ubuntu/lidar/bjm_lidar/read/build/CMakeFiles/rebuild_cache.dir
+/home/ubuntu/lidar/bjm_lidar/read/build/CMakeFiles/edit_cache.dir
+/home/ubuntu/lidar/bjm_lidar/read/build/CMakeFiles/read.dir

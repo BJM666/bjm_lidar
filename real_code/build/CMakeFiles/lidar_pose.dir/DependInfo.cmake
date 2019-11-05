@@ -31,6 +31,7 @@ set(CMAKE_CXX_TARGET_INCLUDE_PATH
   "/usr/local/include/pcl-1.8"
   "/usr/local/include/eigen3"
   "/usr/include/ni"
+  "/usr/include/eigen3"
   "/usr/local/include"
   )
 
