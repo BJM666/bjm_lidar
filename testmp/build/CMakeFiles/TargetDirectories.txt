@@ -1,0 +1,3 @@
+/home/ubuntu/lidar/bjm_lidar/testmp/build/CMakeFiles/edit_cache.dir
+/home/ubuntu/lidar/bjm_lidar/testmp/build/CMakeFiles/rebuild_cache.dir
+/home/ubuntu/lidar/bjm_lidar/testmp/build/CMakeFiles/openmptest.dir
